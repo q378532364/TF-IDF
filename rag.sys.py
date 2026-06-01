@@ -1,23 +1,24 @@
 import sys
 import re
+import sklearn
 from sklearn.feature_extraction.text import TfidfVectorizer
 from pathlib import Path
+import jieba
 
 
 class RAGService():
     def __init__(self):
 
         # 红楼梦文本
-        self.hlm_texts=[]
+        self.hlm_texts = []
         # 红楼梦向量
-        self.hlm_vector=[]
+        self.hlm_vector = []
         # class初始化
         self.init()
 
-    def extract_md_section(self,file_path):
+    def extract_md_section(self, file_path):
 
         text = Path(file_path).read_text(encoding='utf-8')
-
         # 1. 提取标题（### 开头）
         title_match = re.search(r'^###\s+(.+)$', text, re.MULTILINE)
         title = title_match.group(1).strip() if title_match else ''
@@ -57,36 +58,53 @@ class RAGService():
         return title, content
 
     def init_doc(self):
-        temp=Path("txt/红楼梦").rglob("*.md")
-        for file in list(temp):
-            title,body =  self.extract_md_section(file)
-            currentText=''
-            tempList=re.split(r'\n', body)
-            index=0
-            for item in tempList:
-                if(len(item)+ len(currentText)<300):
-                    currentText+=item
-                else:
-                    self.hlm_texts.append({'title':f"{title}[{index}]",'body':currentText})
-                    index+=1
-                    currentText+=item+'\n'
+        # 获取所有 .md 文件
+        pattern = Path("txt/红楼梦").rglob("*.md")
 
-        print(len(self.hlm_texts))
+        # 按文件名中的数字升序排序
+        files = sorted(pattern, key=lambda p: int(p.stem))
+        for file in list(files):
+            title, body = self.extract_md_section(file)
+
+            currentText = ''
+            tempList = re.split(r'\n', body)
+            index = 0
+            for item in tempList:
+                if currentText == '':
+                    currentText = item
+                elif (len(item) + len(currentText) < 300):
+                    currentText += item
+                elif currentText == '':
+                    continue
+                else:
+                    self.hlm_texts.append({'title': f"{title}[{index}]", 'body': currentText})
+                    index += 1
+                    currentText += item + '\n'
+
+    def tokenizer(self):
+        pass
 
     def int_docVect(self):
-        pass
+        word_list = jieba.cut("我来自北京大学", cut_all=False)
+        print(",".join(word_list))
+        tv = TfidfVectorizer(
+            tokenizer=self.tokenizer,
+            max_features=5000,  # 能取到最大特征值
+            min_df=2,  # 忽略出现少于2次的词
+            max_df=0.95,  # 忽略出现概率大于95%以上的词
+            ngram_range=(1, 2),  # 包含1～2个词的选择
+        )
+
+        texts = [x["body"] for x in self.hlm_texts]
+        tv.fit_transform(texts)
 
 
 
     def init(self):
         # 加载文档
         self.init_doc()
-        pass
-
+        self.int_docVect()
 
 
 if __name__ == '__main__':
-     RAGService()
-
-
-    
+    RAGService()

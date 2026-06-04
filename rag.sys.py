@@ -1,3 +1,4 @@
+import pickle
 import sys
 import re
 import sklearn
@@ -5,10 +6,22 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from pathlib import Path
 import jieba
 
+def is_all_chinese(text: str) -> bool:
+    """
+    判断字符串是否全部由中文字符 + 中文标点组成
+    中文标点范围：\u3000-\u303f（如：，。！？；：“”‘’…）
+    汉字范围：\u4e00-\u9fff + 扩展区域（可选，如需增加可自行添加）
+    """
+    # 汉字基本区 + 中文标点
+    pattern = re.compile(r'^[\u4e00-\u9fff\u3000-\u303f]+$')
+    return bool(pattern.match(text))
 
 class RAGService():
     def __init__(self):
-
+        self.cache_path = Path("cache")
+        self.cache_path.mkdir(parents=True, exist_ok=True)
+        self.chunks_dir=self.cache_path/ "hlm_chunks.pkl"
+        self.vectors_dir=self.cache_path / "hlm_vectors.pkl"
         # 红楼梦文本
         self.hlm_texts = []
         # 红楼梦向量
@@ -59,7 +72,7 @@ class RAGService():
 
     def init_doc(self):
         # 获取所有 .md 文件
-        pattern = Path("txt/红楼梦").rglob("*.md")
+        pattern = Path("./txt/红楼梦").rglob("*.md")
 
         # 按文件名中的数字升序排序
         files = sorted(pattern, key=lambda p: int(p.stem))
@@ -80,23 +93,39 @@ class RAGService():
                     self.hlm_texts.append({'title': f"{title}[{index}]", 'body': currentText})
                     index += 1
                     currentText += item + '\n'
+            print(f"文档分片完成，共生成{len(self.hlm_texts)}")
+            with open(self.chunks_dir,"wb") as f:
+                f.write(pickle.dumps(self.hlm_texts))
 
-    def tokenizer(self):
-        pass
+    def tokenizer(self,text):
+        tokensData=[]
+        for line in jieba.cut(text):
+            line=line.strip()
+            if is_all_chinese(line):
+                # 不是语气词
+                # PARTICLE_SET = {
+                #         '啊', '哦', '噢', '喔', '呀', '哟', '呦', '哇', '啦', '咧', '咯', '喽', '嘛', '呗',
+                #         '呵', '嘿', '哈', '哎', '唉', '诶', '欸', '嗯', '唔', '呕', '呃', '呸', '呲', '哼',
+                #         '嚯', '嘘', '喂', '嗨', '哈哈', '呵呵', '嘿嘿', '哎呀', '哎哟', '哇塞', '好嘛', '罢了',
+                #         '而已', '也罢', '好了', '就是', '似的', '一样', '的说', '嗯哼', '啊哈', '哦吼', '哎嗨', '嚯嚯'
+                # }
+                # if line not in PARTICLE_SET:
+                tokensData.append(line)
+        return tokensData
+
 
     def int_docVect(self):
-        word_list = jieba.cut("我来自北京大学", cut_all=False)
-        print(",".join(word_list))
-        tv = TfidfVectorizer(
-            tokenizer=self.tokenizer,
-            max_features=5000,  # 能取到最大特征值
-            min_df=2,  # 忽略出现少于2次的词
-            max_df=0.95,  # 忽略出现概率大于95%以上的词
-            ngram_range=(1, 2),  # 包含1～2个词的选择
-        )
-
-        texts = [x["body"] for x in self.hlm_texts]
-        tv.fit_transform(texts)
+            print("分词中....")
+            tv = TfidfVectorizer(
+                tokenizer=self.tokenizer,
+                max_features=5000,  # 能取到最大特征值
+                min_df=2,  # 忽略出现少于2次的词
+                max_df=0.95,  # 忽略出现概率大于95%以上的词
+                ngram_range=(1, 2),  # 包含1～2个词的选择
+            )
+            print("分词结束....")
+            texts = [x["body"] for x in self.hlm_texts]
+            tv.fit_transform(texts)
 
 
 

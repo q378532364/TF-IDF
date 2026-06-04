@@ -1,4 +1,7 @@
+import numpy as np
 
-top_k=3
-my_list=[1,2,3,4,5,6]
-print(my_list[:top_k])
+# a=np.array([[1,2,3],[4,5,6],[7,8,9]],dtype=int)
+# b=np.asarray(a)
+# print(b)
+
+print()

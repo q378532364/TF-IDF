@@ -60,7 +60,8 @@ class SimpleTFIDF:
         self.__dict__.update(state)
         self.tokenizer = None
 
-    def fit_transform(self, raw_documents):
+    def fit_transform\
+                    (self, raw_documents):
         # 1. 分词并统计词频
         tf_docs = []
         df_counts = Counter()
@@ -271,7 +272,7 @@ class RAGService():
         
         api_key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_BASE_URL", "https://api.deepseek.com/v1")
-        model = os.getenv("AI_MODEL", "deepseek-chat")
+        model = "deepseek-v4-flash"
         
         try:
             session = requests.Session()
